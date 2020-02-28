@@ -1,0 +1,284 @@
+#Assignment 2
+#1
+
+#import the data
+sesame <- read.csv("https://tinyurl.com/wlgl63b")
+sesame
+
+#split in treatment and control
+g4_treat <- sesame[which(sesame$treatment == 1),]
+g4_control <- sesame[which(sesame$treatment != 1),]
+
+#run regressions for treatment and control group
+reg_treat <- lm(post.test~pre.test, data=g4_treat)
+reg_control <- lm(post.test~pre.test, data=g4_control)
+
+
+#Plot the data
+plot(g4_treat$pre.test, g4_treat$post.test, 
+     xlim=c(0,120), ylim = c(0,120),
+     xlab = "Pretest scores", ylab= "Posttest scores",
+     main= "Grade 4")
+points(g4_control$pre.test, g4_control$post.test, pch = 19 )
+abline(reg_treat)
+abline(reg_control, lty=2)
+legend("bottomright",c(" = control group", " = treatment group"),pch=c(19,1))
+
+#b
+#treatment effect of all observations
+copy_sesame <- sesame
+copy_sesame[11,]
+copy_sesame[11,1] = 75
+#copy_sesame[11,1] = 79
+copy_sesame[11,]
+fit2 <- ATE(copy_sesame[,1],copy_sesame[,3],copy_sesame[,2])
+summary(fit2)
+#treatment effect for y=79  -0.010851
+
+#graph
+#split in treatment and control
+g4_treat2 <- copy_sesame[which(copy_sesame$treatment == 1),]
+g4_control2 <- copy_sesame[which(copy_sesame$treatment != 1),]
+
+#run regressions for treatment and control group
+reg_treat2 <- lm(post.test~pre.test, data=g4_treat2)
+reg_control2 <- lm(post.test~pre.test, data=g4_control2)
+
+g4_treat3 <- g4_treat2 - g4_treat2[11,]
+
+#Plot the data
+plot(g4_treat2$pre.test, g4_treat2$post.test, 
+     xlim=c(0,120), ylim = c(0,120),
+     col=ifelse(x==104.1,"red","black"), pch=ifelse(x==104.1 ,19,1),
+     xlab = "Pretest scores", ylab= "Posttest scores",
+     main= "Grade 4")
+points(g4_control2$pre.test, g4_control2$post.test, pch = 19 )
+#points(copy_sesame[11,2], copy_sesame[11,1],pch=7)
+abline(reg_treat2)
+abline(reg_control2, lty=2)
+legend("bottomright",c(" =changed value", " = control group", " = treatment group"),col=c("red", "black", "black"),pch=c(19,1,19))
+
+#c
+lm.4 <- lm (post.test ~ treatment + pre.test + treatment:pre.test,data=sesame)
+lm.4.sim <- sim (lm.4)
+lm.4.sim
+plot (0, 0, xlim=range (sesame[,2]), ylim=c(-5,10),
+      xlab="pre-test", ylab="treatment effect",
+      main="treatment effect in grade 4")
+abline (0, 0, lwd=.5, lty=2)
+for (i in 1:20){
+        curve (lm.4.sim@coef[i,2] + lm.4.sim@coef[i,4]*x, lwd=.5, col="gray",
+               add=TRUE)}
+curve (coef(lm.4)[2] + coef(lm.4)[4]*x, lwd=.5, add=TRUE)
+
+#2
+#get the data
+tinting = read.csv(url("https://tinyurl.com/v4bq99k"))
+head(tinting)
+
+#separate treatment and control
+tinting_trt <- tinting[which(tinting$tint != "no" ), ]
+tinting_ctrl <- tinting[-which(tinting$tint != "no"), ]
+
+#Linear model
+lm <- lm(csoa~ age + sex + target + I(tint != "no") + I(as.numeric(tint!= "no")*age), data=tinting)
+summary(lm)
+
+#To make it easier for myself I added a column that just has 1s and 0s
+#for treated or not treated
+tinting$treated <- rep(NA, nrow(tinting))
+for (i in 1:nrow(tinting)){
+if(tinting$tint[i] != "no"){tinting$treated[i]=1}else{tinting$treated[i]=0}
+}
+as.numeric(tinting$target)
+
+#Predict 95% interval and mean for csoa for treated, female units,
+#simulate
+iterations <- 10000
+sim <- sim(lm, n.sims = iterations)
+
+age_interval = c(20, 30, 40, 50, 60, 70, 80)
+
+simulated.ys.trt <- matrix(NA, nrow = iterations, ncol = length(age_interval))
+mean_trt <- rep(NA, length(age_interval))
+mean_trt
+#loop that fills the table for each age 
+for (age in age_interval) {
+  Xs <- c(1,age, 2 , 1, I(TRUE), I(TRUE)*age)
+  for (i in 1:iterations) {
+    simulated.ys.trt[i, (age/10)-1] <- sum(Xs*sim@coef[i, ]) 
+  }
+  mean_trt[(age/10)-1] <- mean(simulated.ys.trt[,(age/10)-1])
+}
+
+
+
+#table with the confidence intervals and mean for the simulations for each age group
+conf.intervals.trt <- apply(simulated.ys.trt, 2, quantile, probs = c(0.025, 0.975))
+table_mean.trt <- t(data.frame(conf.intervals.trt))
+table_mean.trt <- data.frame(table_mean.trt, mean_trt)
+colnames(table_mean.trt) <- c("Lower Bound", "Upper Bound", "Means")
+rownames(table_mean.trt) <- age_interval
+View(table_mean.trt)
+
+# Plot the prediction intervals (y-axis) against age (x-axis)
+plot(x = age_interval, y = mean_trt, 
+     pch = 19,
+     xlim = c(20,80), 
+     ylim = c(30,80), 
+     main = "Csoa Predictions by Age", xlab = "Age", 
+     ylab = "Predicted csoa")
+
+for (age in age_interval) {
+  segments(
+    x0 = age,
+    y0 = conf.intervals.trt[1, (age/10)-1],
+    x1 = age,
+    y1 = conf.intervals.trt[2, (age/10)-1],
+    lwd = 2)
+}
+
+
+#2b treatment effect (trt-ctrl)
+#simulate control
+simulated.ys.ctrl <- matrix(NA, nrow = iterations, ncol = length(age_interval))
+mean_ctrl <- rep(NA, length(age_interval))
+
+#loop that fills the matrix for each age 
+for (age in age_interval) {
+  Xs <- c(1,age, 1 , 1, 0, 0*age)
+  for (i in 1:itera tions) {
+    simulated.ys.ctrl[i, (age/10)-1] <- sum(Xs*sim@coef[i, ]) 
+  }
+  mean_ctrl[(age/10)-1] <- mean(simulated.ys.ctrl[,(age/10)-1])
+}
+
+simulated_treatment_effect = simulated.ys.trt - simulated.ys.ctrl
+mean_treatment_effect = mean_trt - mean_ctrl
+mean_treatment_effect
+
+# Table with the relevant point estimates (bounds of the prediction intervals of y for different ages, and predictor means)
+conf.intervals_mean.trt_effect <- apply(simulated_treatment_effect, 2, quantile, probs = c(0.025, 0.975))
+table_mean.trt_effect <- t(data.frame(conf.intervals_mean.trt_effect))
+table_mean.trt_effect <- data.frame(table_mean.trt_effect, mean_treatment_effect)
+colnames(table_mean.trt_effect) <- c("Lower Bound", "Upper Bound", "Mean for Treatment Effect")
+rownames(table_mean.trt_effect) <- age_interval
+View(table_mean.trt_effect)
+
+#Plot treatment effects
+plot(x = age_interval, y = mean_treatment_effect, 
+     pch = 19,
+     xlim = c(20,80), 
+     ylim = c(-10,12), 
+     main = "Treatment Effect Predictions by Age", xlab = "Age", 
+     ylab = "Predicted Treatment Effect")
+
+for (age in age_interval) {
+  segments(
+    x0 = age,
+    y0 = conf.intervals_mean.trt_effect[1, (age/10)-1],
+    x1 = age,
+    y1 = conf.intervals_mean.trt_effect[2, (age/10)-1],
+    lwd = 2)
+}
+
+#Q3
+#function that takes 2 vectors (1: original y, 2: estimated y) to calculate R2
+#1-(RSS/TSS)
+#RSS = (actual - predicted)^2
+#TSS = (actual - average_actual)^2
+
+#create function
+r_squ <- function(a, p) {
+  pred <- p
+  actual <- a
+  rss <- sum((pred - actual) ^ 2) 
+  tss <- sum((actual - mean(actual)) ^ 2) 
+  rsq <- 1 - rss/tss
+  return(rsq)
+}
+
+#test on lalonde
+data(lalonde)
+head(lalonde)
+a <- lalonde[,9]
+lm1 <- lm(re78~ age + re74 + black, data=lalonde)
+summary(lm1)$r.sq
+r_squ(a,lm1$fitted.values)
+
+#Q4
+library(foreign)
+
+#import data
+foo <- read.dta("mazedata1.dta")
+View(foo)
+
+#treatment condition: caste revealed vs not caste revealed
+#outcomes: "round1"
+
+#creating extra column for treatment condition
+foo$treat1 <- rep(NA, nrow(foo))
+for (i in 1:nrow(foo)){
+  if(foo$treatment[i] == "Caste Revealed"){foo$treat1[i]=1}else{foo$treat1[i]=0}
+}
+View(foo)
+
+#bootstrap 95% confidence interval of treatment effect
+# Declare bootstrapping function
+iterations <- 10000
+storage <- rep(NA, iterations)
+for (i in 1:iterations) {
+  lm.round1 = lm(round1 ~ treat1, data = foo[sample(1:nrow(foo), nrow(foo), replace = T),])
+  storage[i] <- lm.round1$coefficients[2]
+}
+
+#find simulated confidence interval
+quantile(storage,c(0.025, 0.975))
+
+# Find analytical confidence interval
+lm.round1 = lm(round1 ~ treat1, data = foo)
+confint(lm.round1)[2,]
+
+#Visualize with table and histogram
+#a (table)
+data.frame("simulation" = quantile(storage, c(0.025, 0.975)), "analytical" = confint(lm.round1)[2,])
+
+#b (histogram)
+hist(storage, main = "Bootstrapped Values for the Treatment Effect",
+     col="grey", pch="19",
+     xlab = "Treatment Effect", ylab = "Count")
+
+#Q5
+#import data
+foo <- read.csv(url("https://tinyurl.com/yx8tqf3k"))
+View(foo)
+
+#randomly remove 2000 observations
+set.seed(12345) 
+test_set_rows <- sample(1:length(foo$age), 2000, replace = FALSE)
+test_foo = foo[test_set_rows,]
+train_foo = foo[-test_set_rows,]
+
+#estimate 2 models of varying degrees of complexity (dependent variable: treat)
+glm1 = glm(treat ~ age, data = train_foo)
+glm2 = glm(treat ~.-re78 , data = train_foo)
+
+# Calculate MSE using test set
+MSE1 = mean((test_foo$treat - predict.lm(glm1, test_foo))**2)
+MSE2 = mean((test_foo$treat - predict.lm(glm2, test_foo))**2)
+
+
+
+# Estimate MSE using LOOCV
+library(boot)
+LOOCV1 = cv.glm(train_foo, glm1)$delta[1]
+LOOCV2 = cv.glm(train_foo, glm2)$delta[1]
+
+#Calculate the MSE using 10-fold CV
+fCV1 = cv.glm(train_foo, glm1, K=10)$delta[1]
+fCV2 = cv.glm(train_foo, glm2, K=10)$delta[1]
+#1000 to 1500 times faster
+
+# Table that summarizes the 2 LOOCV estimates and 2 test set MSEs
+data.frame("Test set MSE" = c(MSE1, MSE2),"10-fold CV MSE"= c(fCV1, fCV2), "LOOCV MSE" = c(LOOCV1, LOOCV2))
+
