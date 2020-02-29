@@ -80,9 +80,7 @@ head(tinting)
 tinting_trt <- tinting[which(tinting$tint != "no" ), ]
 tinting_ctrl <- tinting[-which(tinting$tint != "no"), ]
 
-#Linear model
-lm <- lm(csoa~ age + sex + target + I(tint != "no") + I(as.numeric(tint!= "no")*age), data=tinting)
-summary(lm)
+View(tinting)
 
 #To make it easier for myself I added a column that just has 1s and 0s
 #for treated or not treated
@@ -90,7 +88,18 @@ tinting$treated <- rep(NA, nrow(tinting))
 for (i in 1:nrow(tinting)){
 if(tinting$tint[i] != "no"){tinting$treated[i]=1}else{tinting$treated[i]=0}
 }
-as.numeric(tinting$target)
+#as.numeric(tinting$target)
+
+#for female or male
+tinting$gender <- rep(NA, nrow(tinting))
+for (i in 1:nrow(tinting)){
+  if(tinting$sex[i] != "f"){tinting$gender[i]=1}else{tinting$gender[i]=0}
+}
+tinting$gender
+
+#Linear model
+lm <- lm(csoa~ age + gender + target + I(tint != "no") + I(as.numeric(tint!= "no")*age), data=tinting)
+summary(lm)
 
 #Predict 95% interval and mean for csoa for treated, female units,
 #simulate
@@ -102,9 +111,10 @@ age_interval = c(20, 30, 40, 50, 60, 70, 80)
 simulated.ys.trt <- matrix(NA, nrow = iterations, ncol = length(age_interval))
 mean_trt <- rep(NA, length(age_interval))
 mean_trt
+
 #loop that fills the table for each age 
 for (age in age_interval) {
-  Xs <- c(1,age, 2 , 1, I(TRUE), I(TRUE)*age)
+  Xs <- c(1,age, 1 , 1, I(TRUE), I(TRUE)*age)
   for (i in 1:iterations) {
     simulated.ys.trt[i, (age/10)-1] <- sum(Xs*sim@coef[i, ]) 
   }
@@ -147,7 +157,7 @@ mean_ctrl <- rep(NA, length(age_interval))
 #loop that fills the matrix for each age 
 for (age in age_interval) {
   Xs <- c(1,age, 1 , 1, 0, 0*age)
-  for (i in 1:itera tions) {
+  for (i in 1:iterations) {
     simulated.ys.ctrl[i, (age/10)-1] <- sum(Xs*sim@coef[i, ]) 
   }
   mean_ctrl[(age/10)-1] <- mean(simulated.ys.ctrl[,(age/10)-1])
